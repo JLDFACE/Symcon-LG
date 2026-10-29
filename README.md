@@ -66,15 +66,23 @@ LGD_Poll(int $id)
   und neu aufgebaut, wenn er zwar verbunden ist, das Display aber schweigt. Erreichbarkeit wird per
   TCP geprüft, nicht per `Sys_Ping` (geht auf der Catan C1 nicht).
 
-## Noch nicht am Gerät geprüft
+## Am Gerät geprüft (55VX1D-B, Firmware 03.30.70, 29.10.2026)
 
-Das Modul ist nach dem LG-Handbuch gebaut und mit `tests/lgdisplay_test.php` gegen nachgebildete
-Antworten getestet, aber noch nicht an einem echten 55VX1D-B gelaufen. Offen sind vor allem:
+Vier Displays per Hand über TCP 9761 abgefragt, nur lesend. Die Antworten stecken als Testfall in
+`tests/lgdisplay_test.php`.
 
-- ob Seriennummer und Firmware als Klartext kommen (laut Handbuch „ASCII“)
-- welche Eingangscodes das Gerät meldet, besonders für den internen Player
-- ob das Display im Standby im Netz bleibt und wie lange es nach dem Einschalten per Wake-on-LAN braucht
-- ob es mehr als eine Steuerverbindung auf 9761 zulässt
+- Set-ID 1 ab Werk, Antworten wie im Handbuch (`a 01 OK01x`).
+- Seriennummer kommt als Klartext (`807KCJZLM124`), die Firmware ohne Punkte (`033070` = 03.30.70).
+- **Lautstärke und Stumm** beantwortet das Display mit NG, es hat keine Lautsprecher. Das Modul
+  blendet beide Variablen nach dem ersten NG aus und fragt sie nicht mehr ab.
+- **Kachel-ID** (`di`) gibt NG, solange der Kachelmodus aus ist; sie wird nur im Kachelmodus gefragt.
+- Eingang HDMI 1 meldet sich als `a0` (PC-Variante).
+- Wake-on-LAN steht ab Werk auf **aus** (`fw 00`). Ohne das ist ein ausgeschaltetes Display
+  möglicherweise nicht mehr per Netzwerk einzuschalten.
+- `sn 01 82 ff` liefert die Netzwerkeinstellung (`82 00` = DHCP, IP, Maske, Gateway, DNS).
+
+Noch offen: Verhalten im Standby, Dauer des Einschaltens per Wake-on-LAN, Eingangscode des internen
+Players, ob mehr als eine Steuerverbindung auf 9761 geht.
 
 ## Tests
 

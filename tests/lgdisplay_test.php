@@ -37,6 +37,7 @@ function IPS_SetVariableProfileIcon($n, $i) { }
 function IPS_SetVariableProfileValues($n, $a, $b, $c) { }
 function IPS_SetVariableProfileAssociation($n, $v, $name, $icon, $color) { $GLOBALS['profiles'][$n][(int) $v] = $name; }
 function IPS_GetVariableProfileList() { return array_keys($GLOBALS['profiles']); }
+function IPS_SetHidden($id, $hidden) { $GLOBALS['hidden'][] = $id; }
 function IPS_DeleteVariableProfile($n) { unset($GLOBALS['profiles'][$n]); }
 
 class IPSModule
@@ -79,6 +80,7 @@ class IPSModule
     protected function LogMessage($m, $t) { $GLOBALS['log'][] = $m; }
     protected function SendDataToParent($json) { $this->tx[] = json_decode($json, true)['Buffer']; }
 
+    protected function GetIDForIdent($i) { return $i; }   // Ident als ID genügt für IPS_SetHidden
     public function GetValue($i) { return $this->vars[$i]; }
     public function SetValue($i, $v) { $this->vars[$i] = $v; }
 
@@ -110,6 +112,7 @@ function fresh(): LGDisplay
     $GLOBALS['socketStatus'] = 102;
     $GLOBALS['socketProps']  = ['Host' => '', 'Port' => 0, 'Open' => false];
     $GLOBALS['log']          = [];
+    $GLOBALS['hidden']       = [];
     $m = new LGDisplay();
     $m->Create();
     $m->setProp('Host', '192.0.2.10');
@@ -153,9 +156,17 @@ rx($m, 'z 01 OK03.20.10x');
 check('Firmware ("fz" antwortet mit "z")', $m->GetValue('Firmware') === '03.20.10');
 check('Danach Kachelmodus ("dz" antwortet ebenfalls mit "z")', end($m->tx) === "dz 01 ff\r");
 rx($m, 'z 01 OK010202x');
+check('Videowand 2 × 2 ohne Kachel-ID', $m->GetValue('VideoWall') === '2 × 2');
+check('Firmware bleibt trotz zweitem "z" unverändert', $m->GetValue('Firmware') === '03.20.10');
+check('Kachel-ID kommt erst in der nächsten Runde', $m->getBuf('queue') === '[]' && $m->getBuf('inflight') === '[]');
+$m->Poll();
+for ($i = 0; $i < 5; $i++) {
+    rx($m, ['a 01 OK01x', 'b 01 OKa0x', 'd 01 OK00x', 'g 01 OK4bx', 'f 01 OK14x'][$i]);
+}
+rx($m, 'e 01 OK00x');
+check('Im Kachelmodus wird "di" abgefragt', end($m->tx) === "di 01 ff\r");
 rx($m, 'i 01 OK03x');
 check('Videowand 2 × 2, Kachel 3', $m->GetValue('VideoWall') === '2 × 2, Kachel 3');
-check('Firmware bleibt trotz zweitem "z" unverändert', $m->GetValue('Firmware') === '03.20.10');
 
 echo 'Soll/Ist' . PHP_EOL;
 $sent = count($m->tx);
@@ -195,6 +206,33 @@ check('Eingang 0xE0 übernommen', $m->GetValue('Input') === 0xE0);
 check('… mit eigener Beschriftung', ($GLOBALS['profiles']['LGD.4711.Input'][0xE0] ?? '') === 'Eingang 0xE0');
 check('Ungültige Lautstärke abgelehnt', $m->SetVolume(101) === false);
 check('SendRaw prüft das Format', $m->SendRaw('k', '01') === false && $m->SendRaw('dz', 'ff') === true);
+
+echo 'Antworten des 55VX1D-B (192.168.10.116, 29.10.2026)' . PHP_EOL;
+$m = fresh();
+$replies = [
+    'ka' => 'a 01 OK01x', 'xb' => 'b 01 OKa0x', 'kd' => 'd 01 OK00x', 'mg' => 'g 01 OK55x',
+    'kf' => 'f 01 NGffx', 'ke' => 'e 01 NGffx', 'dn' => 'n 01 OK25x', 'sv' => 'v 01 OK0201x',
+    'fy' => 'y 01 OK807KCJZLM124x', 'fz' => 'z 01 OK033070x', 'dz' => 'z 01 OK000202x', 'di' => 'i 01 NGffx'
+];
+$asked = [];
+for ($round = 0; $round < 3; $round++) {
+    $m->Poll();
+    for ($guard = 0; $guard < 20 && $m->getBuf('inflight') !== '[]'; $guard++) {
+        $cmd = substr(end($m->tx), 0, 2);
+        $asked[] = $cmd;
+        rx($m, $replies[$cmd]);
+    }
+}
+check('Eingang HDMI 1 (PC)', $m->GetValue('Input') === 0xA0);
+check('Hintergrundbeleuchtung 85', $m->GetValue('Backlight') === 85);
+check('Temperatur 37 °C', $m->GetValue('Temperature') === 37.0);
+check('Seriennummer', $m->GetValue('Serial') === '807KCJZLM124');
+check('Firmware mit Punkten', $m->GetValue('Firmware') === '03.30.70');
+check('Kachelmodus aus', $m->GetValue('VideoWall') === 'aus');
+check('Lautstärke/Stumm nur einmal gefragt, dann ausgeblendet',
+    count(array_keys($asked, 'kf')) === 1 && count(array_keys($asked, 'ke')) === 1 && $GLOBALS['hidden'] === ['Volume', 'Mute']);
+check('"di" wird ohne Kachelmodus nie gefragt', !in_array('di', $asked, true));
+check('Stumm-Fehler läuft nicht als abgelehnter Sollwert', $GLOBALS['log'] === []);
 
 $m = fresh();
 $GLOBALS['socketStatus'] = 200;

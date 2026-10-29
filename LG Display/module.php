@@ -83,6 +83,7 @@ class LGDisplay extends IPSModule
 
         $this->RegisterAttributeString('LearnedMAC', '');
         $this->RegisterAttributeString('ExtraInputs', '[]');
+        $this->RegisterAttributeString('Unsupported', '[]');
 
         $this->RegisterTimer('PollTimer', 0, 'LGD_Poll($_IPS[\'TARGET\']);');
         $this->RegisterTimer('QueueTimer', 0, 'LGD_ProcessQueue($_IPS[\'TARGET\']);');
@@ -403,8 +404,11 @@ class LGDisplay extends IPSModule
 
         // Im Standby antwortet das Display auf alles andere mit NG.
         if ($this->GetValue('Power')) {
+            $unsupported = $this->UnsupportedCommands();
             foreach (['xb', 'kd', 'mg', 'kf', 'ke'] as $command) {
-                $round[] = [$command, 'ff', $ttl];
+                if (!in_array($command, $unsupported, true)) {
+                    $round[] = [$command, 'ff', $ttl];
+                }
             }
 
             $count = (int) $this->GetBuffer('pollCount');
@@ -414,12 +418,16 @@ class LGDisplay extends IPSModule
                 $round[] = ['sv', '02 ff', $ttl];
             }
 
-            // Geräteinfos nur, bis sie einmal da sind.
+            // Geräteinfos nur, bis sie einmal da sind. Die Kachel-ID gibt es
+            // nur im Kachelmodus, sonst antwortet das Display mit NG.
             $info = $this->GetJsonBuffer('info');
-            foreach (['fy', 'fz', 'dz', 'di'] as $command) {
+            foreach (['fy', 'fz', 'dz'] as $command) {
                 if (!isset($info[$command])) {
                     $round[] = [$command, 'ff', $ttl];
                 }
+            }
+            if (!isset($info['di']) && substr((string) ($info['dz'] ?? ''), 0, 2) === '01') {
+                $round[] = ['di', 'ff', $ttl];
             }
         }
 
@@ -536,6 +544,9 @@ class LGDisplay extends IPSModule
             if (!$isQuery && isset(self::COMMAND_IDENTS[$command])) {
                 $this->RejectPending(self::COMMAND_IDENTS[$command]);
             }
+            if ($isQuery) {
+                $this->MarkUnsupported($command);
+            }
         } else {
             $this->ApplyReply($command, strtolower($data));
         }
@@ -603,8 +614,11 @@ class LGDisplay extends IPSModule
                 break;
 
             case 'fz':
+                // Das Display liefert die Version ohne Punkte: "033070" = 03.30.70
                 $this->StoreInfo('fz', $data);
-                $this->SetValueIfChanged('Firmware', $data);
+                $this->SetValueIfChanged('Firmware', preg_match('/^\d{6}$/', $data)
+                    ? implode('.', str_split($data, 2))
+                    : $data);
                 break;
 
             case 'dz':
@@ -639,6 +653,35 @@ class LGDisplay extends IPSModule
         }
 
         $this->SetValueIfChanged('VideoWall', $text);
+    }
+
+    /**
+     * Lautstärke und Stumm gehen laut Handbuch auch während der Wiedergabe
+     * aus dem internen Speicher. Ein NG darauf heißt also: das Gerät kann es
+     * nicht (55VX1D-B ohne Lautsprecher). Die Variable wird dann versteckt und
+     * nicht mehr abgefragt. Bei allen anderen Kommandos kann NG vorübergehend
+     * sein und zählt nicht.
+     */
+    private function MarkUnsupported(string $command): void
+    {
+        if (!in_array($command, ['kf', 'ke'], true) || in_array($command, $this->UnsupportedCommands(), true)) {
+            return;
+        }
+
+        $list   = $this->UnsupportedCommands();
+        $list[] = $command;
+        $this->WriteAttributeString('Unsupported', json_encode($list));
+
+        $ident = self::COMMAND_IDENTS[$command];
+        $this->SendDebug('RX', '„' . $ident . '“ wird vom Display nicht unterstützt und ausgeblendet', 0);
+        @IPS_SetHidden($this->GetIDForIdent($ident), true);
+    }
+
+    private function UnsupportedCommands(): array
+    {
+        $list = json_decode($this->ReadAttributeString('Unsupported'), true);
+
+        return is_array($list) ? $list : [];
     }
 
     private function StoreInfo(string $command, string $data): void
