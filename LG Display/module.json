@@ -1,0 +1,19 @@
+{
+  "id": "{4B1F6355-3DCD-45B0-BC0C-B9617E22831F}",
+  "name": "LG Display",
+  "type": 3,
+  "vendor": "FACE GmbH",
+  "aliases": [
+    "LG Signage Display",
+    "LG 55VX1D-B",
+    "LG Videowand-Display"
+  ],
+  "parentRequirements": [
+    "{79827379-F36E-4ADA-8A95-5F8D1DC92FA9}"
+  ],
+  "childRequirements": [],
+  "implemented": [
+    "{018EF6B5-AB94-40C6-AA53-46943E824ACF}"
+  ],
+  "prefix": "LGD"
+}

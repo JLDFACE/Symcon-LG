@@ -1,0 +1,12 @@
+{
+  "id": "{9C758756-41A4-4A4E-A2E5-187A747CF826}",
+  "author": "FACE GmbH",
+  "name": "LG Signage Display",
+  "url": "https://github.com/JLDFACE/Symcon-LG",
+  "compatibility": {
+    "version": "7.0"
+  },
+  "version": "0.9",
+  "build": 1,
+  "date": 20261029
+}

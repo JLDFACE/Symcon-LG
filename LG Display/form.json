@@ -1,0 +1,171 @@
+{
+  "elements": [
+    {
+      "type": "ValidationTextBox",
+      "name": "Host",
+      "caption": "IP-Adresse des Displays"
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "Port",
+      "caption": "TCP-Port (LG: 9761)",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "SetID",
+      "caption": "Set-ID",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    {
+      "type": "Label",
+      "caption": "Die Set-ID muss zur Einstellung im Display-Menü passen. In einer Videowand hat jedes Display eine eigene Set-ID und eine eigene Instanz."
+    },
+    {
+      "type": "ValidationTextBox",
+      "name": "MAC",
+      "caption": "MAC-Adresse für Wake-on-LAN (leer = automatisch)"
+    },
+    {
+      "type": "Label",
+      "name": "MacInfo",
+      "caption": ""
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Zeitverhalten",
+      "items": [
+        {
+          "type": "NumberSpinner",
+          "name": "QueryInterval",
+          "caption": "Abfrageintervall",
+          "suffix": "ms",
+          "minimum": 1000,
+          "maximum": 600000
+        },
+        {
+          "type": "NumberSpinner",
+          "name": "QueryFastInterval",
+          "caption": "Abfrageintervall, solange ein Wert unbestätigt ist",
+          "suffix": "ms",
+          "minimum": 500,
+          "maximum": 10000
+        },
+        {
+          "type": "NumberSpinner",
+          "name": "ResponseTimeoutMs",
+          "caption": "Wartezeit auf eine Antwort",
+          "suffix": "ms",
+          "minimum": 300,
+          "maximum": 10000
+        },
+        {
+          "type": "NumberSpinner",
+          "name": "PendingTimeoutMs",
+          "caption": "Frist für die Bestätigung eines gestellten Werts",
+          "suffix": "ms",
+          "minimum": 1000,
+          "maximum": 60000
+        },
+        {
+          "type": "NumberSpinner",
+          "name": "PowerTimeoutMs",
+          "caption": "Frist für das Einschalten (inkl. Wake-on-LAN)",
+          "suffix": "ms",
+          "minimum": 5000,
+          "maximum": 300000
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "RowLayout",
+      "items": [
+        {
+          "type": "Button",
+          "caption": "Einschalten",
+          "onClick": "LGD_PowerOn($id);"
+        },
+        {
+          "type": "Button",
+          "caption": "Ausschalten",
+          "onClick": "LGD_PowerOff($id);"
+        },
+        {
+          "type": "Button",
+          "caption": "Jetzt abfragen",
+          "onClick": "LGD_Poll($id);"
+        }
+      ]
+    },
+    {
+      "type": "RowLayout",
+      "items": [
+        {
+          "type": "Button",
+          "caption": "Magic Packet senden",
+          "onClick": "echo LGD_WakeOnLan($id) ? 'Magic Packet gesendet.' : 'Nicht gesendet: MAC-Adresse unbekannt.';"
+        },
+        {
+          "type": "Button",
+          "caption": "Wake-on-LAN im Display einschalten",
+          "onClick": "echo LGD_EnableWakeOnLan($id) ? 'Gesendet, Antwort im Debug-Fenster.' : 'Nicht gesendet: keine Verbindung.';"
+        }
+      ]
+    },
+    {
+      "type": "RowLayout",
+      "items": [
+        {
+          "type": "ValidationTextBox",
+          "name": "RawCommand",
+          "caption": "Kommando",
+          "width": "120px"
+        },
+        {
+          "type": "ValidationTextBox",
+          "name": "RawData",
+          "caption": "Daten (hex)",
+          "width": "160px"
+        },
+        {
+          "type": "Button",
+          "caption": "Senden",
+          "onClick": "echo LGD_SendRaw($id, $RawCommand, $RawData) ? 'Gesendet, Antwort im Debug-Fenster.' : 'Nicht gesendet.';"
+        }
+      ]
+    },
+    {
+      "type": "Label",
+      "caption": "Beispiele: „dz“ + „ff“ fragt den Kachelmodus ab, „mc“ + „43“ öffnet das Einstellungsmenü."
+    },
+    {
+      "type": "TestCenter"
+    }
+  ],
+  "status": [
+    {
+      "code": 102,
+      "icon": "active",
+      "caption": "Display antwortet"
+    },
+    {
+      "code": 104,
+      "icon": "inactive",
+      "caption": "Keine IP-Adresse eingetragen"
+    },
+    {
+      "code": 201,
+      "icon": "error",
+      "caption": "Kein Client Socket verbunden"
+    },
+    {
+      "code": 202,
+      "icon": "error",
+      "caption": "Display antwortet nicht (aus und nicht im Netz, falsche Set-ID oder Netzwerk)"
+    }
+  ]
+}
